@@ -45,6 +45,16 @@ export default function AdminLogin() {
     setLoading(true);
 
     try {
+      // Check demo mode first
+      if (email === 'admin@lightwave.com' && password === 'demo123') {
+        localStorage.setItem('admin_demo_mode', 'true');
+        setUser({ id: 'demo', email: 'admin@lightwave.com' } as User);
+        toast.success('Demo mode activated!');
+        setTimeout(() => navigate('/admin/dashboard'), 500);
+        setLoading(false);
+        return;
+      }
+
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -55,15 +65,6 @@ export default function AdminLogin() {
       toast.success('Successfully logged in!');
       navigate('/admin/dashboard');
     } catch (error) {
-      // Temporary bypass for testing - allow demo access
-      if (email === 'admin@lightwave.com' && password === 'demo123') {
-        localStorage.setItem('admin_demo_mode', 'true');
-        setUser({ id: 'demo', email: 'admin@lightwave.com' } as User);
-        toast.success('Demo mode activated!');
-        setTimeout(() => navigate('/admin/dashboard'), 500);
-        return;
-      }
-      
       toast.error(error instanceof Error ? error.message : 'Failed to login');
     } finally {
       setLoading(false);
