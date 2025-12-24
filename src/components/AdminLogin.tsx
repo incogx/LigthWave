@@ -10,34 +10,58 @@ export default function AdminLogin() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [redirecting, setRedirecting] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if user is already logged in
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        navigate('/admin/dashboard');
-      }
-    });
+    let isMounted = true;
 
-    // Check demo mode
-    const demoMode = localStorage.getItem('admin_demo_mode');
-    if (demoMode === 'true') {
-      setUser({ id: 'demo', email: 'admin@lightwave.com' } as User);
-    }
+    const checkAuth = async () => {
+      try {
+        // Check demo mode first (faster)
+        const demoMode = localStorage.getItem('admin_demo_mode');
+        if (demoMode === 'true') {
+          if (isMounted) {
+            setUser({ id: 'demo', email: 'admin@lightwave.com' } as User);
+            setRedirecting(true);
+            navigate('/admin/dashboard');
+          }
+          return;
+        }
+
+        // Then check Supabase session
+        const { data: { session } } = await supabase.auth.getSession();
+        if (isMounted) {
+          if (session?.user) {
+            setUser(session.user);
+            setRedirecting(true);
+            navigate('/admin/dashboard');
+          }
+        }
+      } catch (error) {
+        console.error('Auth check error:', error);
+      }
+    };
+
+    checkAuth();
 
     // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        navigate('/admin/dashboard');
+      if (isMounted) {
+        if (session?.user) {
+          setUser(session.user);
+          setRedirecting(true);
+          navigate('/admin/dashboard');
+        }
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
